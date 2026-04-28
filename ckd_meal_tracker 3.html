@@ -1,0 +1,1833 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="腎食管理">
+<meta name="mobile-web-app-capable" content="yes">
+<title>腎臓病 食事管理</title>
+<style>
+  :root {
+    --bg: #f7f5f0;
+    --surface: #ffffff;
+    --surface2: #f0ede8;
+    --border: #e0dbd4;
+    --text: #1a1714;
+    --text2: #6b6560;
+    --text3: #9e9890;
+    --green: #2d7a5f;
+    --green-bg: #e8f5ef;
+    --amber: #b06020;
+    --amber-bg: #fdf3e3;
+    --red: #c0392b;
+    --red-bg: #fdecea;
+    --accent: #3a6ea8;
+    --radius: 14px;
+    --radius-sm: 8px;
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; background: var(--bg); font-family: -apple-system, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', sans-serif; color: var(--text); overscroll-behavior: none; }
+
+  .app { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
+
+  /* Header */
+  .header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 14px 16px 10px; padding-top: calc(14px + env(safe-area-inset-top, 0px)); flex-shrink: 0; }
+  .header-title { font-size: 17px; font-weight: 600; letter-spacing: -0.3px; }
+  .header-date { font-size: 12px; color: var(--text2); margin-top: 1px; }
+
+  /* Scroll content */
+  .content { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .page { display: none; padding: 16px; padding-bottom: calc(80px + var(--safe-bottom)); }
+  .page.active { display: block; }
+
+  /* Bottom nav */
+  .nav { display: flex; background: var(--surface); border-top: 1px solid var(--border); flex-shrink: 0; padding-bottom: var(--safe-bottom); }
+  .nav-btn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 10px 4px; border: none; background: none; cursor: pointer; color: var(--text3); font-size: 10px; font-family: inherit; }
+  .nav-btn.active { color: var(--accent); }
+  .nav-icon { font-size: 22px; line-height: 1; }
+
+  /* Metrics */
+  .metric-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+  .metric-card { background: var(--surface); border-radius: var(--radius); padding: 12px 10px; border: 1px solid var(--border); }
+  .metric-label { font-size: 11px; color: var(--text2); margin-bottom: 4px; }
+  .metric-val { font-size: 19px; font-weight: 600; letter-spacing: -0.5px; }
+  .metric-unit { font-size: 11px; font-weight: 400; }
+  .metric-sub { font-size: 10px; color: var(--text3); margin-top: 2px; }
+  .bar { height: 4px; background: var(--border); border-radius: 2px; margin-top: 7px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 2px; transition: width 0.4s ease; }
+  .c-ok { color: var(--green); } .c-warn { color: var(--amber); } .c-danger { color: var(--red); }
+  .bg-ok { background: var(--green); } .bg-warn { background: var(--amber); } .bg-danger { background: var(--red); }
+
+  /* Alert */
+  .alert { border-radius: var(--radius-sm); padding: 10px 12px; font-size: 13px; margin-bottom: 8px; line-height: 1.5; }
+  .alert-warn { background: var(--amber-bg); color: var(--amber); }
+  .alert-danger { background: var(--red-bg); color: var(--red); }
+
+  /* Card */
+  .card { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); padding: 14px; margin-bottom: 12px; }
+  .card-title { font-size: 14px; font-weight: 600; margin-bottom: 12px; }
+
+  /* Meal list */
+  .meal-item { display: flex; justify-content: space-between; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .meal-item:last-child { border-bottom: none; }
+  .meal-name { font-size: 14px; font-weight: 500; }
+  .meal-detail { font-size: 11px; color: var(--text2); margin-top: 3px; line-height: 1.5; }
+  .del-btn { background: var(--red-bg); color: var(--red); border: none; border-radius: var(--radius-sm); padding: 5px 10px; font-size: 12px; cursor: pointer; flex-shrink: 0; margin-left: 8px; }
+  .empty { text-align: center; padding: 32px 16px; color: var(--text3); font-size: 14px; line-height: 1.7; }
+
+  /* Method selector */
+  .method-seg { display: flex; background: var(--surface2); border-radius: var(--radius-sm); padding: 3px; margin-bottom: 14px; }
+  .method-btn { flex: 1; padding: 8px 4px; border: none; border-radius: 6px; background: none; font-size: 13px; color: var(--text2); cursor: pointer; font-family: inherit; transition: all 0.2s; }
+  .method-btn.active { background: var(--surface); color: var(--text); font-weight: 500; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+  .method-panel { display: none; }
+  .method-panel.active { display: block; }
+
+  /* Upload */
+  .upload-area { border: 2px dashed var(--border); border-radius: var(--radius); padding: 28px 16px; text-align: center; cursor: pointer; position: relative; background: var(--surface2); }
+  .upload-area input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
+  .upload-icon-wrap { font-size: 36px; margin-bottom: 8px; }
+  .upload-text { font-size: 15px; font-weight: 500; margin-bottom: 4px; }
+  .upload-sub { font-size: 12px; color: var(--text2); }
+  .preview-img { width: 100%; max-height: 220px; object-fit: contain; border-radius: var(--radius-sm); margin-bottom: 12px; display: none; }
+
+  /* Loading */
+  .loading { display: none; align-items: center; gap: 10px; padding: 14px; color: var(--text2); font-size: 13px; }
+  .spinner { width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; flex-shrink: 0; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Result table */
+  .result-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 12px; }
+  .result-table th { font-size: 11px; color: var(--text2); text-align: right; padding: 6px 4px; border-bottom: 1px solid var(--border); font-weight: 500; }
+  .result-table th:first-child { text-align: left; }
+  .result-table td { padding: 8px 4px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .result-table td:first-child { font-weight: 500; }
+  .result-table input[type=number] { width: 62px; text-align: right; padding: 4px 6px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; background: var(--surface); color: var(--text); font-family: inherit; }
+
+  /* Form */
+  .form-row { margin-bottom: 12px; }
+  .form-label { font-size: 12px; color: var(--text2); margin-bottom: 5px; display: block; }
+  .form-input { width: 100%; padding: 11px 13px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 15px; background: var(--surface); color: var(--text); font-family: inherit; appearance: none; -webkit-appearance: none; }
+  .form-input:focus { outline: none; border-color: var(--accent); }
+  .form-row-inline { display: flex; gap: 10px; }
+  .form-row-inline .form-row { flex: 1; }
+  select.form-input { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239e9890' stroke-width='1.5' fill='none'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px; }
+  textarea.form-input { min-height: 80px; resize: vertical; }
+
+  /* Buttons */
+  .btn { display: block; width: 100%; padding: 13px; border-radius: var(--radius-sm); border: none; font-size: 15px; font-weight: 600; cursor: pointer; font-family: inherit; transition: opacity 0.15s; }
+  .btn:active { opacity: 0.75; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-row { display: flex; gap: 8px; margin-top: 4px; }
+  .btn-row .btn { flex: 1; }
+
+  /* Notes box */
+  .notes-box { background: var(--amber-bg); border-radius: var(--radius-sm); padding: 10px 12px; font-size: 12px; color: var(--amber); line-height: 1.6; margin-bottom: 12px; display: none; }
+
+  /* History */
+  .hist-item { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 10px; }
+  .hist-date { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+  .badge-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .badge { font-size: 11px; padding: 3px 9px; border-radius: 20px; font-weight: 500; }
+  .badge-ok { background: var(--green-bg); color: var(--green); }
+  .badge-warn { background: var(--amber-bg); color: var(--amber); }
+  .badge-danger { background: var(--red-bg); color: var(--red); }
+  .hist-count { font-size: 11px; color: var(--text3); margin-top: 6px; }
+
+  /* Food guide */
+  .filter-row { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 12px; -webkit-overflow-scrolling: touch; }
+  .filter-row::-webkit-scrollbar { display: none; }
+  .filter-chip { flex-shrink: 0; padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border); background: var(--surface); font-size: 13px; cursor: pointer; color: var(--text2); font-family: inherit; }
+  .filter-chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .food-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 8px; }
+  .food-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .food-name { font-size: 14px; font-weight: 600; }
+  .food-tag { font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
+  .tag-ok { background: var(--green-bg); color: var(--green); }
+  .tag-caution { background: var(--amber-bg); color: var(--amber); }
+  .tag-ng { background: var(--red-bg); color: var(--red); }
+  .food-nums { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 6px; }
+  .food-num { background: var(--surface2); border-radius: 6px; padding: 5px 8px; font-size: 11px; }
+  .food-num-label { color: var(--text3); }
+  .food-num-val { font-weight: 600; font-size: 13px; margin-top: 1px; }
+  .food-note { font-size: 12px; color: var(--text2); line-height: 1.5; }
+
+  .section-label { font-size: 12px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+
+  /* よく食べるもの */
+  .qp-item { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .qp-item:last-child { border-bottom: none; }
+  .qp-info { flex: 1; min-width: 0; }
+  .qp-name { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .qp-detail { font-size: 11px; color: var(--text2); margin-top: 2px; }
+  .qp-count { font-size: 11px; color: var(--text3); background: var(--surface2); border-radius: 10px; padding: 2px 7px; flex-shrink: 0; }
+  .qp-btn { background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); padding: 6px 12px; font-size: 13px; cursor: pointer; flex-shrink: 0; font-family: inherit; font-weight: 500; }
+  .qp-search { width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 14px; background: var(--surface2); color: var(--text); font-family: inherit; margin-bottom: 10px; }
+  .qp-search:focus { outline: none; border-color: var(--accent); background: var(--surface); }
+
+  /* 残り摂取可能量 */
+  .remain-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 14px; }
+  .remain-card { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); padding: 10px; text-align: center; }
+  .remain-label { font-size: 10px; color: var(--text3); margin-bottom: 3px; }
+  .remain-val { font-size: 16px; font-weight: 600; }
+  .remain-unit { font-size: 10px; font-weight: 400; }
+  .remain-ok { color: var(--green); }
+  .remain-warn { color: var(--amber); }
+  .remain-over { color: var(--red); }
+
+  /* 平均値カード */
+  .avg-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
+  .avg-card { background: var(--surface2); border-radius: var(--radius-sm); padding: 8px; text-align: center; }
+  .avg-label { font-size: 10px; color: var(--text3); margin-bottom: 2px; }
+  .avg-val { font-size: 15px; font-weight: 600; }
+  .avg-unit { font-size: 10px; font-weight: 400; }
+
+  /* 印刷スタイル */
+  @media print {
+    body { background: #fff; font-family: sans-serif; }
+    .app { height: auto; }
+    .header, .nav, .content > .page:not(#page-history) { display: none !important; }
+    #page-history { display: block !important; padding: 0; }
+    .card { border: 1px solid #ccc; break-inside: avoid; }
+    .hist-range-btn, .chart-nutrient-btn, button { display: none !important; }
+    canvas { max-width: 100%; }
+    .print-header { display: block !important; }
+    .no-print { display: none !important; }
+  }
+  .print-header { display: none; font-size: 16px; font-weight: bold; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <div class="header-title">腎臓病 食事管理</div>
+    <div class="header-date" id="header-date"></div>
+  </div>
+
+  <div class="content">
+    <!-- TODAY -->
+    <div class="page active" id="page-today">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+        <button onclick="shiftDay(-1)" style="padding:6px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);font-size:16px;cursor:pointer;color:var(--text2)">‹</button>
+        <input type="date" class="form-input" id="view-date" style="flex:1;text-align:center;font-weight:600" onchange="renderDayView()">
+        <button onclick="shiftDay(1)" style="padding:6px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);font-size:16px;cursor:pointer;color:var(--text2)">›</button>
+      </div>
+      <div id="alerts-area"></div>
+      <div class="metric-grid" id="metrics"></div>
+      <div class="remain-grid" id="remain-grid"></div>
+      <div class="card">
+        <div class="card-title" id="day-card-title">食事記録</div>
+        <div id="today-list"></div>
+      </div>
+    </div>
+
+    <!-- ADD -->
+    <div class="page" id="page-add">
+      <div class="method-seg">
+        <button class="method-btn active" onclick="showMethod('photo')">📷 写真</button>
+        <button class="method-btn" onclick="showMethod('text')">✏️ 文章</button>
+        <button class="method-btn" onclick="showMethod('manual')">🔢 手動</button>
+      </div>
+
+      <!-- PHOTO -->
+      <div class="method-panel active" id="mp-photo">
+        <div class="card">
+          <div class="card-title">写真から解析</div>
+          <div class="upload-area" id="upload-wrap">
+            <input type="file" accept="image/*" capture="environment" id="photo-file" onchange="handlePhoto(event)">
+            <div class="upload-icon-wrap">📷</div>
+            <div class="upload-text">タップして撮影・選択</div>
+            <div class="upload-sub">カメラまたはライブラリから選べます</div>
+          </div>
+          <img class="preview-img" id="photo-preview">
+          <div class="loading" id="photo-loading"><div class="spinner"></div>AIが解析しています…</div>
+          <div id="photo-result-area" style="display:none">
+            <div class="notes-box" id="photo-notes"></div>
+            <table class="result-table">
+              <thead><tr><th>食品</th><th>タンパク質g</th><th>塩分g</th><th>カリウムmg</th></tr></thead>
+              <tbody id="photo-rows"></tbody>
+            </table>
+            <div class="form-row-inline">
+              <div class="form-row">
+                <label class="form-label">日付</label>
+                <input type="date" class="form-input" id="photo-date">
+              </div>
+              <div class="form-row">
+                <label class="form-label">食事タイミング</label>
+                <select class="form-input" id="photo-timing"><option>朝ごはん</option><option>昼ごはん</option><option>夕ごはん</option><option>おやつ</option></select>
+              </div>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-primary" onclick="addFromPhoto()">追加する</button>
+              <button class="btn btn-secondary" onclick="resetPhoto()">やり直す</button>
+            </div>
+          </div>
+        </div>
+        <div class="card" style="background:var(--amber-bg);border-color:var(--amber)">
+          <div style="font-size:12px;color:var(--amber);line-height:1.7">📡 写真解析にはインターネット接続が必要です。オフライン時は「文章」か「手動」タブをご利用ください。AIの推定値は目安です。主治医・管理栄養士の指示を優先してください。</div>
+        </div>
+      </div>
+
+      <!-- TEXT -->
+      <div class="method-panel" id="mp-text">
+        <div class="card">
+          <div class="card-title">食べたものを文章で</div>
+          <div class="form-row">
+            <textarea class="form-input" id="text-input" placeholder="例：朝ごはんに白ごはん200g、焼き鮭1切れ、みそ汁を食べました"></textarea>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+            <button onclick="prefillText('朝ごはんに')" style="font-size:12px;padding:5px 12px;border:1px solid var(--border);border-radius:20px;background:var(--surface2);color:var(--text2);cursor:pointer;font-family:inherit">朝ごはん</button>
+            <button onclick="prefillText('昼ごはんに')" style="font-size:12px;padding:5px 12px;border:1px solid var(--border);border-radius:20px;background:var(--surface2);color:var(--text2);cursor:pointer;font-family:inherit">昼ごはん</button>
+            <button onclick="prefillText('夕ごはんに')" style="font-size:12px;padding:5px 12px;border:1px solid var(--border);border-radius:20px;background:var(--surface2);color:var(--text2);cursor:pointer;font-family:inherit">夕ごはん</button>
+            <button onclick="prefillText('おやつに')" style="font-size:12px;padding:5px 12px;border:1px solid var(--border);border-radius:20px;background:var(--surface2);color:var(--text2);cursor:pointer;font-family:inherit">おやつ</button>
+          </div>
+          <div class="loading" id="text-loading"><div class="spinner"></div>AIが解析しています…</div>
+          <div id="text-result-area" style="display:none">
+            <div class="notes-box" id="text-notes"></div>
+            <table class="result-table">
+              <thead><tr><th>食品</th><th>タンパク質g</th><th>塩分g</th><th>カリウムmg</th></tr></thead>
+              <tbody id="text-rows"></tbody>
+            </table>
+            <div class="form-row-inline">
+              <div class="form-row">
+                <label class="form-label">日付</label>
+                <input type="date" class="form-input" id="text-date">
+              </div>
+              <div class="form-row">
+                <label class="form-label">食事タイミング</label>
+                <select class="form-input" id="text-timing"><option>朝ごはん</option><option>昼ごはん</option><option>夕ごはん</option><option>おやつ</option></select>
+              </div>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-primary" onclick="addFromText()">追加する</button>
+              <button class="btn btn-secondary" onclick="resetText()">やり直す</button>
+            </div>
+          </div>
+          <div id="text-action">
+            <button class="btn btn-primary" onclick="analyzeText()">Claudeに解析してもらう</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MANUAL -->
+      <div class="method-panel" id="mp-manual">
+        <!-- 統合食品検索 -->
+        <div class="card" id="quick-pick-card">
+          <div class="card-title">食品を検索して追加</div>
+          <input class="qp-search" type="text" id="qp-search" placeholder="🔍 食品名で検索（食品DB・過去の記録）" oninput="renderQuickPick()" style="display:block">
+          <div id="quick-pick-list">
+            <div class="empty" style="padding:16px;font-size:13px">食品名を入力すると候補が表示されます</div>
+          </div>
+        </div>
+        <!-- 手動入力フォーム -->
+        <div class="card">
+          <div class="card-title" id="manual-form-title">栄養素を入力</div>
+          <div id="manual-form-source" style="font-size:12px;color:var(--accent);margin-bottom:10px;display:none"></div>
+          <div class="form-row">
+            <label class="form-label">日付</label>
+            <input type="date" class="form-input" id="m-date">
+          </div>
+          <div class="form-row">
+            <label class="form-label">食品名</label>
+            <input type="text" class="form-input" id="m-name" placeholder="例：白ごはん" oninput="renderQuickPick()">
+          </div>
+          <div id="m-amount-row" style="display:none">
+            <div class="form-row">
+              <label class="form-label">食べた量 (g)</label>
+              <input type="number" class="form-input" id="m-amount" placeholder="100" min="1" oninput="calcFromAmount()">
+            </div>
+            <div id="m-amount-preview" style="background:var(--surface2);border-radius:var(--radius-sm);padding:8px 12px;font-size:12px;margin-bottom:10px;display:none">
+              <span id="m-preview-vals"></span>
+            </div>
+          </div>
+          <div class="form-row-inline">
+            <div class="form-row">
+              <label class="form-label">タンパク質 (g)</label>
+              <input type="number" class="form-input" id="m-protein" placeholder="0.0" step="0.1" min="0">
+            </div>
+            <div class="form-row">
+              <label class="form-label">塩分 (g)</label>
+              <input type="number" class="form-input" id="m-salt" placeholder="0.0" step="0.1" min="0">
+            </div>
+          </div>
+          <div class="form-row-inline">
+            <div class="form-row">
+              <label class="form-label">カリウム (mg)</label>
+              <input type="number" class="form-input" id="m-potassium" placeholder="0" min="0">
+            </div>
+            <div class="form-row">
+              <label class="form-label">食事タイミング</label>
+              <select class="form-input" id="m-timing"><option>朝ごはん</option><option>昼ごはん</option><option>夕ごはん</option><option>おやつ</option></select>
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="addManual()">追加する</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- HISTORY -->
+    <div class="page" id="page-history">
+      <!-- 期間フィルター -->
+      <div class="card" style="padding:12px 14px;margin-bottom:12px">
+        <div style="font-size:13px;font-weight:600;margin-bottom:10px">期間を指定</div>
+        <div class="form-row-inline" style="margin-bottom:8px">
+          <div class="form-row" style="margin-bottom:0">
+            <label class="form-label">開始日</label>
+            <input type="date" class="form-input" id="hist-from" onchange="renderHistory()">
+          </div>
+          <div class="form-row" style="margin-bottom:0">
+            <label class="form-label">終了日</label>
+            <input type="date" class="form-input" id="hist-to" onchange="renderHistory()">
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button onclick="setHistRange(7)" class="hist-range-btn">直近7日</button>
+          <button onclick="setHistRange(30)" class="hist-range-btn">直近30日</button>
+          <button onclick="setHistRange(90)" class="hist-range-btn">直近3ヶ月</button>
+          <button onclick="setHistRange(0)" class="hist-range-btn">すべて</button>
+        </div>
+      </div>
+      <!-- グラフ切替 -->
+      <div class="card" style="padding:12px 14px;margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <div style="font-size:13px;font-weight:600">推移グラフ</div>
+          <div style="display:flex;gap:4px">
+            <button onclick="setChartNutrient('protein')" id="chart-btn-protein" class="chart-nutrient-btn active">タンパク質</button>
+            <button onclick="setChartNutrient('salt')" id="chart-btn-salt" class="chart-nutrient-btn">塩分</button>
+            <button onclick="setChartNutrient('potassium')" id="chart-btn-potassium" class="chart-nutrient-btn">カリウム</button>
+          </div>
+        </div>
+        <canvas id="hist-chart" style="width:100%;height:180px;display:block"></canvas>
+        <div id="chart-empty" style="display:none;text-align:center;padding:40px 0;font-size:13px;color:var(--text3)">表示できるデータがありません</div>
+      </div>
+      <!-- 一覧 -->
+      <div class="print-header" id="print-title"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="font-size:13px;color:var(--text2)" id="hist-count-label"></div>
+        <div style="display:flex;gap:6px" class="no-print">
+          <button onclick="printReport()" style="font-size:12px;padding:6px 14px;border:1px solid var(--border);border-radius:20px;background:var(--surface);color:var(--text2);cursor:pointer;font-family:inherit;font-weight:500">🖨️ 印刷</button>
+          <button onclick="exportCSV()" style="font-size:12px;padding:6px 14px;border:1px solid var(--border);border-radius:20px;background:var(--surface);color:var(--accent);cursor:pointer;font-family:inherit;font-weight:500">📥 CSV</button>
+        </div>
+      </div>
+      <!-- 平均値 -->
+      <div class="card" id="avg-card" style="margin-bottom:12px;display:none">
+        <div style="font-size:13px;font-weight:600;margin-bottom:10px" id="avg-title">期間平均</div>
+        <div class="avg-grid" id="avg-grid"></div>
+        <div style="font-size:11px;color:var(--text3);margin-top:8px" id="avg-sub"></div>
+      </div>
+      <div id="hist-list"></div>
+    </div>
+
+    <!-- FOODS -->
+    <div class="page" id="page-foods">
+      <!-- ツールバー -->
+      <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
+        <button onclick="showFoodModal()" style="font-size:12px;padding:6px 14px;border:1px solid var(--border);border-radius:20px;background:var(--accent);color:#fff;cursor:pointer;font-family:inherit;font-weight:500;border-color:transparent">＋ 食品を追加</button>
+        <label style="font-size:12px;padding:6px 14px;border:1px solid var(--border);border-radius:20px;background:var(--surface);color:var(--text2);cursor:pointer;font-family:inherit;font-weight:500">
+          📂 CSVを読み込む
+          <input type="file" accept=".csv,text/csv" id="food-csv-input" style="display:none" onchange="importFoodCSV(event)">
+        </label>
+        <button onclick="downloadFoodTemplate()" style="font-size:12px;padding:6px 14px;border:1px solid var(--border);border-radius:20px;background:var(--surface);color:var(--text2);cursor:pointer;font-family:inherit;font-weight:500">📥 テンプレート</button>
+      </div>
+      <!-- 検索 -->
+      <input type="text" id="food-search" placeholder="🔍 食品名で絞り込む" oninput="renderFoods()" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:14px;background:var(--surface2);color:var(--text);font-family:inherit;margin-bottom:10px">
+      <!-- 栄養素フィルター -->
+      <div class="card" style="padding:12px 14px;margin-bottom:10px">
+        <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px">栄養素で絞り込む <span style="font-weight:400;color:var(--text3)">（100gあたり）</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+          <div>
+            <div style="font-size:11px;color:var(--text2);margin-bottom:4px">タンパク質</div>
+            <div style="display:flex;align-items:center;gap:4px">
+              <select id="nf-protein-op" onchange="renderFoods()" style="font-size:12px;padding:5px 4px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-family:inherit;width:44px">
+                <option value="lte">以下</option>
+                <option value="gte">以上</option>
+              </select>
+              <input type="number" id="nf-protein" placeholder="g" min="0" step="0.1" oninput="renderFoods()" style="width:100%;padding:5px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--surface);color:var(--text);font-family:inherit">
+            </div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--text2);margin-bottom:4px">塩分</div>
+            <div style="display:flex;align-items:center;gap:4px">
+              <select id="nf-salt-op" onchange="renderFoods()" style="font-size:12px;padding:5px 4px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-family:inherit;width:44px">
+                <option value="lte">以下</option>
+                <option value="gte">以上</option>
+              </select>
+              <input type="number" id="nf-salt" placeholder="g" min="0" step="0.1" oninput="renderFoods()" style="width:100%;padding:5px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--surface);color:var(--text);font-family:inherit">
+            </div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--text2);margin-bottom:4px">カリウム</div>
+            <div style="display:flex;align-items:center;gap:4px">
+              <select id="nf-potassium-op" onchange="renderFoods()" style="font-size:12px;padding:5px 4px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-family:inherit;width:44px">
+                <option value="lte">以下</option>
+                <option value="gte">以上</option>
+              </select>
+              <input type="number" id="nf-potassium" placeholder="mg" min="0" step="1" oninput="renderFoods()" style="width:100%;padding:5px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--surface);color:var(--text);font-family:inherit">
+            </div>
+          </div>
+        </div>
+        <button onclick="clearNutrientFilter()" style="margin-top:10px;font-size:12px;padding:5px 14px;border:1px solid var(--border);border-radius:20px;background:var(--surface2);color:var(--text2);cursor:pointer;font-family:inherit">クリア</button>
+      </div>
+      <!-- フィルター -->
+      <div class="filter-row" id="food-filter-row" style="margin-bottom:12px">
+        <button class="filter-chip active" onclick="filterFoods(this,'all')">すべて</button>
+        <button class="filter-chip" onclick="filterFoods(this,'__custom__')">マイ食品</button>
+      </div>
+      <div id="food-count" style="font-size:12px;color:var(--text3);margin-bottom:8px"></div>
+      <div id="food-list"></div>
+    </div>
+
+  <!-- 食品追加モーダル -->
+  <div id="food-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:100;align-items:flex-end">
+    <div style="background:var(--surface);border-radius:20px 20px 0 0;padding:20px 16px;padding-bottom:calc(20px + env(safe-area-inset-bottom));width:100%;max-height:85vh;overflow-y:auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <div style="font-size:16px;font-weight:600" id="food-modal-title">食品を追加</div>
+        <button onclick="hideFoodModal()" style="border:none;background:none;font-size:22px;color:var(--text2);cursor:pointer;padding:0">×</button>
+      </div>
+      <div class="form-row">
+        <label class="form-label">食品名 *</label>
+        <input type="text" class="form-input" id="fm-name" placeholder="例：白ごはん">
+      </div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:8px">※ 100gあたりの栄養素を入力してください</div>
+      <div class="form-row-inline">
+        <div class="form-row">
+          <label class="form-label">タンパク質 (g)</label>
+          <input type="number" class="form-input" id="fm-protein" placeholder="0.0" step="0.1" min="0">
+        </div>
+        <div class="form-row">
+          <label class="form-label">塩分 (g)</label>
+          <input type="number" class="form-input" id="fm-salt" placeholder="0.0" step="0.1" min="0">
+        </div>
+      </div>
+      <div class="form-row-inline">
+        <div class="form-row">
+          <label class="form-label">カリウム (mg)</label>
+          <input type="number" class="form-input" id="fm-potassium" placeholder="0" min="0">
+        </div>
+        <div class="form-row">
+          <label class="form-label">分類（複数つけられます）</label>
+          <div id="fm-tags-display" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;min-height:24px"></div>
+          <div style="display:flex;gap:6px">
+            <input type="text" class="form-input" id="fm-status" placeholder="分類名を入力してEnter" list="fm-status-list" style="flex:1" onkeydown="handleTagInput(event)">
+            <button type="button" onclick="addTagFromInput()" style="padding:8px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-size:13px;cursor:pointer;font-family:inherit;white-space:nowrap">追加</button>
+          </div>
+          <datalist id="fm-status-list"></datalist>
+          <div id="fm-tag-suggestions" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px"></div>
+        </div>
+      </div>
+      <div class="form-row">
+        <label class="form-label">メモ（任意）</label>
+        <input type="text" class="form-input" id="fm-note" placeholder="例：1日1個まで">
+      </div>
+      <button class="btn btn-primary" onclick="saveFoodItem()">保存する</button>
+    </div>
+  </div>
+
+  </div>
+
+  <nav class="nav">
+    <button class="nav-btn active" onclick="showPage('today',this)"><span class="nav-icon">📊</span>今日</button>
+    <button class="nav-btn" onclick="showPage('add',this)"><span class="nav-icon">➕</span>追加</button>
+    <button class="nav-btn" onclick="showPage('history',this)"><span class="nav-icon">📅</span>履歴</button>
+    <button class="nav-btn" onclick="showPage('foods',this)"><span class="nav-icon">🥗</span>食品</button>
+  </nav>
+</div>
+
+<script>
+const LIMITS = { protein: 60, salt: 6, saltMin: 3, potassium: 2000 };
+const API_KEY_PLACEHOLDER = 'YOUR_API_KEY'; // ← ここにAPIキーは不要（Claudeチャット経由で使う場合）
+
+const FOOD_DB = [
+  { name:'白ごはん', per100:{protein:2.5,salt:0,potassium:29}, status:'おすすめ', note:'カリウムが少なく主食として最適。量は1杯150〜200g程度に。' },
+  { name:'うどん（ゆで）', per100:{protein:2.6,salt:0.3,potassium:10}, status:'おすすめ', note:'カリウムが非常に少ない優秀な主食。塩分に注意。' },
+  { name:'そうめん（ゆで）', per100:{protein:3.5,salt:0,potassium:10}, status:'おすすめ', note:'カリウム少なめ。つゆは薄めに。' },
+  { name:'食パン（1枚60g）', per100:{protein:8.9,salt:1.2,potassium:97}, status:'注意', note:'タンパク質・塩分がやや高め。1〜2枚まで。' },
+  { name:'たまご（1個50g）', per100:{protein:12.3,salt:0.4,potassium:130}, status:'おすすめ', note:'良質なタンパク源。1日1〜2個が目安。' },
+  { name:'木綿豆腐', per100:{protein:7.0,salt:0,potassium:140}, status:'おすすめ', note:'植物性タンパク。塩分ゼロで使いやすい。' },
+  { name:'鮭（1切れ80g）', per100:{protein:22.3,salt:0.2,potassium:350}, status:'注意', note:'タンパク質が高い。量を調整して。' },
+  { name:'鶏むね肉', per100:{protein:22.3,salt:0.1,potassium:370}, status:'注意', note:'タンパク質が高め。少量を。' },
+  { name:'豚ロース', per100:{protein:19.3,salt:0.1,potassium:300}, status:'注意', note:'適量なら可。タンパク質に注意。' },
+  { name:'しらす干し', per100:{protein:40.5,salt:6.1,potassium:490}, status:'避けたい', note:'タンパク質・塩分・カリウムすべて高い。避けて。' },
+  { name:'バナナ', per100:{protein:1.1,salt:0,potassium:360}, status:'避けたい', note:'カリウムが非常に多い。避けること。' },
+  { name:'りんご（100g）', per100:{protein:0.2,salt:0,potassium:120}, status:'注意', note:'カリウムがやや多い。半分程度に。' },
+  { name:'みかん（1個80g）', per100:{protein:0.7,salt:0,potassium:130}, status:'注意', note:'1個なら許容範囲。毎日は控えて。' },
+  { name:'キャベツ（ゆで）', per100:{protein:1.3,salt:0,potassium:92}, status:'おすすめ', note:'ゆでるとカリウムが減る。おすすめ野菜。' },
+  { name:'もやし（ゆで）', per100:{protein:1.7,salt:0,potassium:35}, status:'おすすめ', note:'カリウムが非常に少ない。たっぷり使える。' },
+  { name:'ほうれん草（ゆで）', per100:{protein:2.6,salt:0,potassium:490}, status:'避けたい', note:'ゆでても多い。できるだけ控えて。' },
+  { name:'みそ汁（1杯）', per100:{protein:2.2,salt:1.5,potassium:200}, status:'注意', note:'塩分が高め。減塩みそを使って薄めに。' },
+  { name:'醤油（小さじ1）', per100:{protein:7.7,salt:14.5,potassium:320}, status:'注意', note:'少量に。減塩醤油を活用して。' },
+  { name:'マヨネーズ', per100:{protein:1.5,salt:1.9,potassium:15}, status:'おすすめ', note:'カリウム少なくカロリー補給に。塩分に注意。' },
+  { name:'バター（10g）', per100:{protein:0.6,salt:1.9,potassium:15}, status:'おすすめ', note:'タンパク質・カリウムが少ない。カロリー補給に。' },
+  { name:'トマトジュース', per100:{protein:0.7,salt:0.6,potassium:240}, status:'避けたい', note:'カリウムが非常に多い。飲まない方がよい。' },
+];
+
+let todayMeals = [];
+let history = [];
+let parsedPhotoItems = [];
+let parsedTextItems = [];
+let foodFilter = 'all';
+
+function load() {
+  try { todayMeals = JSON.parse(localStorage.getItem('ckd_meals') || '[]'); } catch(e) { todayMeals = []; }
+  try { history = JSON.parse(localStorage.getItem('ckd_hist') || '[]'); } catch(e) { history = []; }
+}
+function save() {
+  try {
+    localStorage.setItem('ckd_meals', JSON.stringify(todayMeals));
+    localStorage.setItem('ckd_hist', JSON.stringify(history));
+  } catch(e) {}
+}
+function dateKey(d) {
+  // d は Date オブジェクト or "YYYY-MM-DD" 文字列
+  if (typeof d === 'string') {
+    // YYYY-MM-DD 形式をそのままキーに使う
+    const parts = d.split('-');
+    const y = parts[0], m = parseInt(parts[1]), dd = parseInt(parts[2]);
+    const key = `${y}-${String(m).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;
+    return { key, label: `${m}月${dd}日` };
+  }
+  const y = d.getFullYear(), m = d.getMonth()+1, dd = d.getDate();
+  const key = `${y}-${String(m).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;
+  return { key, label: `${m}月${dd}日` };
+}
+
+function saveMealToDate(meal, dateStr) {
+  // dateStr: "YYYY-MM-DD" (input[type=date]の値) or null（今日）
+  const today = new Date();
+  const todayKey = dateKey(today).key;
+
+  if (!dateStr || dateKey(dateStr).key === todayKey) {
+    // 今日分
+    todayMeals.push(meal);
+    saveToHistory();
+    renderDayView();
+  } else {
+    // 過去・未来の日付
+    const { key, label } = dateKey(dateStr);
+    const idx = history.findIndex(h => h.key === key);
+    if (idx >= 0) {
+      history[idx].meals.push(meal);
+    } else {
+      history.unshift({ key, label, meals: [meal] });
+      history.sort((a, b) => b.key.localeCompare(a.key));
+    }
+    save();
+    // 追加した日が表示されるよう履歴ページへ
+    alert(`${label}の記録に追加しました`);
+  }
+}
+
+function saveToHistory() {
+  if (!todayMeals.length) return;
+  const { key, label } = dateKey(new Date());
+  const idx = history.findIndex(h => h.key === key);
+  const entry = { key, label, meals: [...todayMeals] };
+  if (idx >= 0) history[idx] = entry;
+  else history.unshift(entry);
+  save();
+}
+
+function todayDateStr() {
+  const d = new Date();
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const dd = String(d.getDate()).padStart(2,'0');
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
+function getTotals(meals) {
+  return meals.reduce((a,m) => ({ protein: a.protein+(m.protein||0), salt: a.salt+(m.salt||0), potassium: a.potassium+(m.potassium||0) }), {protein:0,salt:0,potassium:0});
+}
+function getStatus(val, limit, type) {
+  if (type==='salt') { if(val>0&&val<LIMITS.saltMin) return 'warn'; if(val>limit) return 'danger'; return 'ok'; }
+  const p = val/limit;
+  if (p>=1) return 'danger';
+  if (p>=0.85) return 'warn';
+  return 'ok';
+}
+function statusClass(s) { return s==='ok'?'c-ok':s==='warn'?'c-warn':'c-danger'; }
+function barClass(s) { return s==='ok'?'bg-ok':s==='warn'?'bg-warn':'bg-danger'; }
+function badgeClass(s) { return s==='ok'?'badge-ok':s==='warn'?'badge-warn':'badge-danger'; }
+
+// 表示中の日付のmealsを取得
+function getViewMeals() {
+  const vd = document.getElementById('view-date');
+  if (!vd) return todayMeals;
+  const vKey = dateKey(vd.value).key;
+  const todayK = dateKey(new Date()).key;
+  if (vKey === todayK) return todayMeals;
+  const found = history.find(h => h.key === vKey);
+  return found ? found.meals : [];
+}
+
+// 表示中の日付ラベル
+function getViewLabel() {
+  const vd = document.getElementById('view-date');
+  if (!vd) return '今日';
+  const vKey = dateKey(vd.value).key;
+  const todayK = dateKey(new Date()).key;
+  if (vKey === todayK) return '今日';
+  return dateKey(vd.value).label;
+}
+
+function renderDayView() {
+  const meals = getViewMeals();
+  const label = getViewLabel();
+  const titleEl = document.getElementById('day-card-title');
+  if (titleEl) titleEl.textContent = label + 'の食事';
+  renderMetrics(meals);
+  renderTodayList(meals);
+}
+
+function shiftDay(delta) {
+  const vd = document.getElementById('view-date');
+  const d = new Date(vd.value + 'T00:00:00');
+  d.setDate(d.getDate() + delta);
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const dd = String(d.getDate()).padStart(2,'0');
+  vd.value = `${d.getFullYear()}-${mm}-${dd}`;
+  renderDayView();
+}
+
+function renderMetrics(meals) {
+  if (!meals) meals = getViewMeals();
+  const t = getTotals(meals);
+  const items = [
+    {label:'タンパク質', val:t.protein, limit:LIMITS.protein, unit:'g', type:'protein'},
+    {label:'塩分', val:t.salt, limit:LIMITS.salt, unit:'g', type:'salt'},
+    {label:'カリウム', val:t.potassium, limit:LIMITS.potassium, unit:'mg', type:'potassium'},
+  ];
+  document.getElementById('metrics').innerHTML = items.map(item => {
+    const st = getStatus(item.val, item.limit, item.type);
+    const pct = Math.min(100, Math.round(item.val/item.limit*100));
+    const sub = item.type==='salt' ? `目標 ${LIMITS.saltMin}〜${LIMITS.salt}g` : `上限 ${item.limit}${item.unit}`;
+    return `<div class="metric-card">
+      <div class="metric-label">${item.label}</div>
+      <div class="metric-val ${statusClass(st)}">${item.val.toFixed(1)}<span class="metric-unit"> ${item.unit}</span></div>
+      <div class="metric-sub">${sub}</div>
+      <div class="bar"><div class="bar-fill ${barClass(st)}" style="width:${pct}%"></div></div>
+    </div>`;
+  }).join('');
+
+  // 残り摂取可能量
+  const remainEl = document.getElementById('remain-grid');
+  if (remainEl) {
+    const remainItems = [
+      { label: 'タンパク質 残り', remain: LIMITS.protein - t.protein, unit: 'g', type: 'protein' },
+      { label: '塩分 残り', remain: LIMITS.salt - t.salt, unit: 'g', type: 'salt' },
+      { label: 'カリウム 残り', remain: LIMITS.potassium - t.potassium, unit: 'mg', type: 'potassium' },
+    ];
+    remainEl.innerHTML = remainItems.map(item => {
+      const r = item.remain;
+      const cls = r < 0 ? 'remain-over' : r < (item.type==='potassium'?300:item.type==='protein'?10:0.5) ? 'remain-warn' : 'remain-ok';
+      const disp = item.type==='potassium' ? Math.round(Math.abs(r)) : Math.abs(r).toFixed(1);
+      const prefix = r < 0 ? '超過 ' : 'あと ';
+      return `<div class="remain-card">
+        <div class="remain-label">${item.label}</div>
+        <div class="remain-val ${cls}">${prefix}${disp}<span class="remain-unit"> ${item.unit}</span></div>
+      </div>`;
+    }).join('');
+  }
+
+  renderAlerts(t, meals);
+}
+
+function renderAlerts(t, meals) {
+  if (!meals) meals = getViewMeals();
+  const al = [];
+  if (t.protein > LIMITS.protein) al.push({c:'danger', m:`⚠️ タンパク質が上限を超えています（${t.protein.toFixed(1)}g / 60g）`});
+  else if (t.protein > LIMITS.protein*0.85) al.push({c:'warn', m:`タンパク質が上限に近づいています（${t.protein.toFixed(1)}g）`});
+  if (t.salt > LIMITS.salt) al.push({c:'danger', m:`⚠️ 塩分が上限を超えています（${t.salt.toFixed(1)}g / 6g）`});
+  else if (t.salt < LIMITS.saltMin && meals.length > 0) al.push({c:'warn', m:`塩分が目標の下限（3g）より少ないです（${t.salt.toFixed(1)}g）`});
+  if (t.potassium > LIMITS.potassium) al.push({c:'danger', m:`⚠️ カリウムが上限を超えています（${Math.round(t.potassium)}mg / 2000mg）`});
+  else if (t.potassium > LIMITS.potassium*0.85) al.push({c:'warn', m:`カリウムが上限に近づいています（${Math.round(t.potassium)}mg）`});
+  document.getElementById('alerts-area').innerHTML = al.map(a=>`<div class="alert alert-${a.c}">${a.m}</div>`).join('');
+}
+
+function renderTodayList(meals) {
+  if (!meals) meals = getViewMeals();
+  const el = document.getElementById('today-list');
+  const label = getViewLabel();
+  if (!meals.length) { el.innerHTML=`<div class="empty">${label}の記録はありません。<br>「追加」タブから記録してみましょう。</div>`; return; }
+
+  const vd = document.getElementById('view-date');
+  const vKey = vd ? dateKey(vd.value).key : dateKey(new Date()).key;
+  const todayK = dateKey(new Date()).key;
+  const isToday = vKey === todayK;
+
+  el.innerHTML = meals.map((m,i)=>`
+    <div class="meal-item">
+      <div>
+        <div class="meal-name">${m.name}</div>
+        <div class="meal-detail">${m.timing} ｜ タンパク質 ${m.protein.toFixed(1)}g ｜ 塩分 ${m.salt.toFixed(1)}g ｜ カリウム ${Math.round(m.potassium)}mg</div>
+      </div>
+      <button class="del-btn" onclick="removeMeal(${i},'${vKey}')">削除</button>
+    </div>`).join('');
+}
+
+function removeMeal(i, vKey) {
+  const todayK = dateKey(new Date()).key;
+  if (vKey === todayK) {
+    todayMeals.splice(i, 1);
+    saveToHistory();
+  } else {
+    const idx = history.findIndex(h => h.key === vKey);
+    if (idx >= 0) {
+      history[idx].meals.splice(i, 1);
+      if (history[idx].meals.length === 0) history.splice(idx, 1);
+      save();
+    }
+  }
+  renderDayView();
+}
+
+function showPage(name, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  btn.classList.add('active');
+  if (name==='history') renderHistory();
+  if (name==='foods') renderFoods();
+}
+
+function showMethod(name) {
+  ['photo','text','manual'].forEach((n,i) => {
+    document.querySelectorAll('.method-btn')[i].classList.toggle('active', n===name);
+    document.getElementById('mp-'+n).classList.toggle('active', n===name);
+  });
+  if (name === 'manual') renderQuickPick();
+}
+
+// 統合食品検索：食品DB＋カスタム食品＋過去の記録
+let selectedFoodSource = null; // 食品DBから選択した場合の per100 データ
+
+function buildSearchData() {
+  // 食品DB（プリセット＋カスタム）
+  const dbItems = getAllFoods().map(f => ({
+    name: f.name,
+    source: 'db',
+    per100: f.per100,
+    status: f.status,
+    note: f.note || '',
+    count: 0,
+  }));
+
+  // 過去の記録（回数集計）
+  const allMeals = [...todayMeals];
+  history.forEach(d => allMeals.push(...d.meals));
+  const histMap = {};
+  allMeals.forEach(m => {
+    // 食品DBと重複しないように記録専用の項目を作る
+    const baseName = m.name.replace(/（\d+g）$/, ''); // "白ごはん（150g）" → "白ごはん"
+    if (!histMap[baseName]) histMap[baseName] = { count: 0, protein: m.protein, salt: m.salt, potassium: m.potassium };
+    histMap[baseName].count++;
+  });
+
+  // 食品DBにcountをマージ、DBにない記録は別途追加
+  const dbNames = new Set(dbItems.map(f => f.name));
+  dbItems.forEach(f => { if (histMap[f.name]) f.count = histMap[f.name].count; });
+  const histOnly = Object.entries(histMap)
+    .filter(([name]) => !dbNames.has(name))
+    .map(([name, v]) => ({
+      name,
+      source: 'history',
+      per100: null,
+      directNutrients: { protein: v.protein, salt: v.salt, potassium: v.potassium },
+      count: v.count,
+      note: '過去の記録',
+    }));
+
+  return [...dbItems, ...histOnly].sort((a,b) => b.count - a.count);
+}
+
+function renderQuickPick() {
+  const query = (document.getElementById('qp-search')?.value || document.getElementById('m-name')?.value || '').trim();
+  const listEl = document.getElementById('quick-pick-list');
+  if (!listEl) return;
+
+  const all = buildSearchData();
+  const filtered = query
+    ? all.filter(f => f.name.includes(query) || (f.note||'').includes(query))
+    : all.filter(f => f.count > 0); // 未検索時は過去に使ったものだけ
+
+  if (!filtered.length) {
+    listEl.innerHTML = query
+      ? `<div class="empty" style="padding:12px;font-size:13px">「${query}」は見つかりませんでした。<br>下のフォームで直接入力できます。</div>`
+      : '<div class="empty" style="padding:12px;font-size:13px">食品名を入力すると候補が表示されます</div>';
+    return;
+  }
+
+  window._qpData = filtered;
+  listEl.innerHTML = filtered.slice(0, 20).map((item, i) => {
+    const isDB = item.source === 'db' || item.source === 'custom';
+    const nutrientText = isDB
+      ? `100gあたり：タンパク質 ${item.per100.protein}g｜塩分 ${item.per100.salt}g｜カリウム ${item.per100.potassium}mg`
+      : `タンパク質 ${(item.directNutrients?.protein||0).toFixed(1)}g｜塩分 ${(item.directNutrients?.salt||0).toFixed(1)}g｜カリウム ${Math.round(item.directNutrients?.potassium||0)}mg`;
+    const tag = isDB ? `<span style="font-size:10px;padding:1px 6px;border-radius:10px;background:var(--surface2);color:var(--text3)">食品DB</span>` : `<span style="font-size:10px;padding:1px 6px;border-radius:10px;background:var(--amber-bg);color:var(--amber)">過去の記録</span>`;
+    const countBadge = item.count > 0 ? `<span class="qp-count">${item.count}回</span>` : '';
+    return `<div class="qp-item">
+      <div class="qp-info">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+          <span class="qp-name">${item.name}</span>${tag}${countBadge}
+        </div>
+        <div class="qp-detail">${nutrientText}</div>
+      </div>
+      <button class="qp-btn" onclick="setQuickPick(${i})">選択</button>
+    </div>`;
+  }).join('');
+}
+
+function setQuickPick(i) {
+  const item = window._qpData?.[i];
+  if (!item) return;
+
+  // 食品名をフォームにセット
+  document.getElementById('m-name').value = item.name;
+  selectedFoodSource = item.per100 || null;
+
+  if (item.per100) {
+    // 食品DBから選択 → 量入力欄を表示して計算
+    document.getElementById('m-amount-row').style.display = 'block';
+    document.getElementById('m-amount').value = '100';
+    const sourceEl = document.getElementById('manual-form-source');
+    sourceEl.style.display = 'block';
+    sourceEl.textContent = `📦 食品DB「${item.name}」から選択（量を入力すると自動計算されます）`;
+    calcFromAmount();
+  } else {
+    // 過去の記録から選択 → 栄養素を直接セット
+    document.getElementById('m-amount-row').style.display = 'none';
+    document.getElementById('m-protein').value = (item.directNutrients?.protein||0).toFixed(1);
+    document.getElementById('m-salt').value = (item.directNutrients?.salt||0).toFixed(1);
+    document.getElementById('m-potassium').value = Math.round(item.directNutrients?.potassium||0);
+    const sourceEl = document.getElementById('manual-form-source');
+    sourceEl.style.display = 'block';
+    sourceEl.textContent = `📋 過去の記録「${item.name}」から選択`;
+  }
+  // 検索欄をクリアしてリストを閉じる
+  document.getElementById('qp-search').value = '';
+  document.getElementById('quick-pick-list').innerHTML = '<div class="empty" style="padding:12px;font-size:13px">食品名を入力すると候補が表示されます</div>';
+  // フォームまでスクロール
+  document.getElementById('m-name').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function calcFromAmount() {
+  if (!selectedFoodSource) return;
+  const amt = parseFloat(document.getElementById('m-amount').value) || 0;
+  const r = amt / 100;
+  const p = parseFloat((selectedFoodSource.protein * r).toFixed(1));
+  const s = parseFloat((selectedFoodSource.salt * r).toFixed(1));
+  const k = Math.round(selectedFoodSource.potassium * r);
+  document.getElementById('m-protein').value = p;
+  document.getElementById('m-salt').value = s;
+  document.getElementById('m-potassium').value = k;
+  const prev = document.getElementById('m-amount-preview');
+  if (amt > 0) {
+    prev.style.display = 'block';
+    document.getElementById('m-preview-vals').innerHTML =
+      `<span style="color:var(--accent)">タンパク質 ${p}g</span>　<span style="color:var(--amber)">塩分 ${s}g</span>　<span style="color:var(--green)">カリウム ${k}mg</span>`;
+  } else {
+    prev.style.display = 'none';
+  }
+}
+
+// AI CALL
+async function callClaude(messages) {
+  const system = `あなたはCKD（慢性腎臓病）ステージ4の患者の食事管理AIです。
+食事制限：タンパク質60g/日以下、塩分3〜6g/日、カリウム2000mg/日以下。
+栄養素を推定して、必ず以下のJSON形式のみで返答。他テキスト不可。
+{"items":[{"name":"食品名","protein":数値,"salt":数値,"potassium":数値}],"notes":"注意事項（1〜2文）"}
+protein/saltはg（小数1桁）、potassiumはmg（整数）。`;
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 1000, system, messages })
+  });
+  const data = await res.json();
+  return (data.content||[]).map(c=>c.text||'').join('');
+}
+
+function parseAIResponse(raw) {
+  const clean = raw.replace(/```json|```/g,'').trim();
+  return JSON.parse(clean);
+}
+
+function renderResultRows(tbodyId, items, prefix) {
+  document.getElementById(tbodyId).innerHTML = items.map((item,i)=>`
+    <tr>
+      <td>${item.name}</td>
+      <td><input type="number" id="${prefix}-p-${i}" value="${item.protein.toFixed(1)}" step="0.1" min="0"></td>
+      <td><input type="number" id="${prefix}-s-${i}" value="${item.salt.toFixed(1)}" step="0.1" min="0"></td>
+      <td><input type="number" id="${prefix}-k-${i}" value="${Math.round(item.potassium)}" step="1" min="0"></td>
+    </tr>`).join('');
+}
+
+function collectAndCombine(items, prefix, timing) {
+  const collected = items.map((item,i)=>({
+    name: item.name,
+    protein: parseFloat(document.getElementById(`${prefix}-p-${i}`).value)||0,
+    salt: parseFloat(document.getElementById(`${prefix}-s-${i}`).value)||0,
+    potassium: parseFloat(document.getElementById(`${prefix}-k-${i}`).value)||0,
+  }));
+  const names = collected.map(c=>c.name).join('・');
+  const totals = collected.reduce((a,c)=>({protein:a.protein+c.protein,salt:a.salt+c.salt,potassium:a.potassium+c.potassium}),{protein:0,salt:0,potassium:0});
+  return { name: names, ...totals, timing };
+}
+
+// PHOTO
+async function handlePhoto(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async (ev) => {
+    const base64 = ev.target.result.split(',')[1];
+    const mediaType = file.type || 'image/jpeg';
+    document.getElementById('upload-wrap').style.display = 'none';
+    const prev = document.getElementById('photo-preview');
+    prev.src = ev.target.result;
+    prev.style.display = 'block';
+    const loading = document.getElementById('photo-loading');
+    loading.style.display = 'flex';
+    document.getElementById('photo-result-area').style.display = 'none';
+    try {
+      const raw = await callClaude([{ role:'user', content:[
+        { type:'image', source:{ type:'base64', media_type:mediaType, data:base64 } },
+        { type:'text', text:'この食事の写真の食品を特定し、タンパク質・塩分・カリウムを推定してください。' }
+      ]}]);
+      const parsed = parseAIResponse(raw);
+      parsedPhotoItems = parsed.items || [];
+      const notesEl = document.getElementById('photo-notes');
+      if (parsed.notes) { notesEl.textContent = '💡 ' + parsed.notes; notesEl.style.display = 'block'; }
+      else notesEl.style.display = 'none';
+      renderResultRows('photo-rows', parsedPhotoItems, 'photo');
+      document.getElementById('photo-result-area').style.display = 'block';
+    } catch(err) {
+      alert('解析に失敗しました。通信状況を確認してもう一度お試しください。');
+      resetPhoto();
+    }
+    loading.style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+
+function addFromPhoto() {
+  const meal = collectAndCombine(parsedPhotoItems, 'photo', document.getElementById('photo-timing').value);
+  const dateStr = document.getElementById('photo-date').value;
+  saveMealToDate(meal, dateStr);
+  resetPhoto();
+  showPage('today', document.querySelectorAll('.nav-btn')[0]);
+}
+
+function resetPhoto() {
+  document.getElementById('upload-wrap').style.display = 'block';
+  document.getElementById('photo-preview').style.display = 'none';
+  document.getElementById('photo-loading').style.display = 'none';
+  document.getElementById('photo-result-area').style.display = 'none';
+  document.getElementById('photo-file').value = '';
+  parsedPhotoItems = [];
+}
+
+// TEXT
+async function analyzeText() {
+  const text = document.getElementById('text-input').value.trim();
+  if (!text) { alert('食べた内容を入力してください'); return; }
+  document.getElementById('text-action').style.display = 'none';
+  document.getElementById('text-loading').style.display = 'flex';
+  try {
+    const raw = await callClaude([{ role:'user', content:`次の食事内容の栄養素を推定してください：「${text}」` }]);
+    const parsed = parseAIResponse(raw);
+    parsedTextItems = parsed.items || [];
+    const notesEl = document.getElementById('text-notes');
+    if (parsed.notes) { notesEl.textContent = '💡 ' + parsed.notes; notesEl.style.display = 'block'; }
+    else notesEl.style.display = 'none';
+    renderResultRows('text-rows', parsedTextItems, 'text');
+    document.getElementById('text-result-area').style.display = 'block';
+  } catch(err) {
+    alert('解析に失敗しました。通信状況を確認してもう一度お試しください。');
+    document.getElementById('text-action').style.display = 'block';
+  }
+  document.getElementById('text-loading').style.display = 'none';
+}
+
+function addFromText() {
+  const meal = collectAndCombine(parsedTextItems, 'text', document.getElementById('text-timing').value);
+  const dateStr = document.getElementById('text-date').value;
+  saveMealToDate(meal, dateStr);
+  resetText();
+  showPage('today', document.querySelectorAll('.nav-btn')[0]);
+}
+
+function resetText() {
+  document.getElementById('text-input').value = '';
+  document.getElementById('text-result-area').style.display = 'none';
+  document.getElementById('text-action').style.display = 'block';
+  document.getElementById('text-loading').style.display = 'none';
+  parsedTextItems = [];
+}
+
+function prefillText(prefix) {
+  const el = document.getElementById('text-input');
+  if (!el.value.startsWith(prefix)) el.value = prefix + el.value;
+  el.focus();
+}
+
+// MANUAL
+function addManual() {
+  const name = document.getElementById('m-name').value.trim();
+  if (!name) { alert('食品名を入力してください'); return; }
+  const meal = {
+    name, timing: document.getElementById('m-timing').value,
+    protein: parseFloat(document.getElementById('m-protein').value)||0,
+    salt: parseFloat(document.getElementById('m-salt').value)||0,
+    potassium: parseFloat(document.getElementById('m-potassium').value)||0,
+  };
+  const dateStr = document.getElementById('m-date').value;
+  saveMealToDate(meal, dateStr);
+  ['m-name','m-protein','m-salt','m-potassium','m-amount'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
+  document.getElementById('m-date').value = todayDateStr();
+  document.getElementById('m-amount-row').style.display = 'none';
+  document.getElementById('m-amount-preview').style.display = 'none';
+  document.getElementById('manual-form-source').style.display = 'none';
+  selectedFoodSource = null;
+  showPage('today', document.querySelectorAll('.nav-btn')[0]);
+}
+
+function calcAverage(data) {
+  if (!data.length) return null;
+  const sum = data.reduce((a,d) => {
+    const t = getTotals(d.meals);
+    return { protein: a.protein+t.protein, salt: a.salt+t.salt, potassium: a.potassium+t.potassium };
+  }, {protein:0,salt:0,potassium:0});
+  const n = data.length;
+  return { protein: sum.protein/n, salt: sum.salt/n, potassium: sum.potassium/n, days: n };
+}
+
+function renderAverage(data) {
+  const card = document.getElementById('avg-card');
+  const grid = document.getElementById('avg-grid');
+  const sub = document.getElementById('avg-sub');
+  const title = document.getElementById('avg-title');
+  if (!card || !grid) return;
+  const avg = calcAverage(data);
+  if (!avg || avg.days < 2) { card.style.display='none'; return; }
+  card.style.display = 'block';
+  if (title) title.textContent = `期間平均（${avg.days}日分）`;
+
+  const items = [
+    { label:'タンパク質 平均', val:avg.protein, limit:LIMITS.protein, unit:'g', type:'protein' },
+    { label:'塩分 平均', val:avg.salt, limit:LIMITS.salt, unit:'g', type:'salt' },
+    { label:'カリウム 平均', val:avg.potassium, limit:LIMITS.potassium, unit:'mg', type:'potassium' },
+  ];
+  grid.innerHTML = items.map(item => {
+    const st = getStatus(item.val, item.limit, item.type);
+    const disp = item.type==='potassium' ? Math.round(item.val) : item.val.toFixed(1);
+    return `<div class="avg-card">
+      <div class="avg-label">${item.label}</div>
+      <div class="avg-val ${statusClass(st)}">${disp}<span class="avg-unit"> ${item.unit}</span></div>
+    </div>`;
+  }).join('');
+
+  // 週間・月間の追記
+  const fromVal = document.getElementById('hist-from')?.value || '';
+  const toVal = document.getElementById('hist-to')?.value || '';
+  let rangeLabel = '';
+  if (fromVal && toVal) rangeLabel = `${fromVal.slice(5).replace('-','/')} 〜 ${toVal.slice(5).replace('-','/')}`;
+  if (sub) sub.textContent = rangeLabel ? `集計期間：${rangeLabel}` : '';
+}
+
+function printReport() {
+  const filtered = getFilteredHistory();
+  const fromVal = document.getElementById('hist-from')?.value || '';
+  const toVal = document.getElementById('hist-to')?.value || '';
+  const range = (fromVal && toVal) ? `${fromVal} 〜 ${toVal}` : 'すべての期間';
+  const printTitle = document.getElementById('print-title');
+  if (printTitle) printTitle.textContent = `腎臓病 食事記録レポート｜${range}`;
+  window.print();
+}
+
+// HISTORY
+let currentChartNutrient = 'protein';
+
+function setHistRange(days) {
+  const toEl = document.getElementById('hist-to');
+  const fromEl = document.getElementById('hist-from');
+  const now = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const fmt = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  toEl.value = fmt(now);
+  if (days === 0) {
+    fromEl.value = '';
+  } else {
+    const from = new Date(now);
+    from.setDate(from.getDate() - (days - 1));
+    fromEl.value = fmt(from);
+  }
+  renderHistory();
+}
+
+function setChartNutrient(type) {
+  currentChartNutrient = type;
+  document.querySelectorAll('.chart-nutrient-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('chart-btn-' + type).classList.add('active');
+  drawChart(window._histChartData || []);
+}
+
+function normalizeKey(key) {
+  // 旧形式 "YYYY-M-D" → "YYYY-MM-DD" に統一
+  if (!key || key === 'today') return key;
+  const parts = key.split('-');
+  if (parts.length !== 3) return key;
+  return `${parts[0]}-${String(parseInt(parts[1])).padStart(2,'0')}-${String(parseInt(parts[2])).padStart(2,'0')}`;
+}
+
+function getFilteredHistory() {
+  const fromVal = document.getElementById('hist-from')?.value || '';
+  const toVal = document.getElementById('hist-to')?.value || '';
+  const todayK = dateKey(new Date()).key;
+
+  // 今日のデータと履歴を統合（キーを正規化して重複排除）
+  const todayEntry = todayMeals.length ? [{ key: todayK, label: dateKey(new Date()).label, meals: todayMeals }] : [];
+  const histNorm = history.map(d => ({ ...d, key: normalizeKey(d.key) }));
+  const merged = [...todayEntry, ...histNorm].filter((d,i,arr) => arr.findIndex(x => x.key === d.key) === i);
+  merged.sort((a,b) => a.key.localeCompare(b.key)); // 昇順
+
+  const filtered = merged.filter(day => {
+    if (!fromVal && !toVal) return true;
+    if (fromVal && day.key < fromVal) return false;
+    if (toVal && day.key > toVal) return false;
+    return true;
+  });
+  return filtered;
+}
+
+function drawChart(data) {
+  const canvas = document.getElementById('hist-chart');
+  const emptyEl = document.getElementById('chart-empty');
+  if (!canvas) return;
+  if (!data.length) {
+    canvas.style.display = 'none';
+    emptyEl.style.display = 'block';
+    return;
+  }
+  canvas.style.display = 'block';
+  emptyEl.style.display = 'none';
+
+  const nutrient = currentChartNutrient;
+  const limit = nutrient === 'protein' ? LIMITS.protein : nutrient === 'salt' ? LIMITS.salt : LIMITS.potassium;
+  const unit = nutrient === 'potassium' ? 'mg' : 'g';
+  const color = nutrient === 'protein' ? '#3a6ea8' : nutrient === 'salt' ? '#b06020' : '#2d7a5f';
+  const label = nutrient === 'protein' ? 'タンパク質' : nutrient === 'salt' ? '塩分' : 'カリウム';
+
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.offsetWidth || 300;
+  const H = 180;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const pad = { top: 16, right: 16, bottom: 36, left: 44 };
+  const cW = W - pad.left - pad.right;
+  const cH = H - pad.top - pad.bottom;
+
+  const values = data.map(d => getTotals(d.meals)[nutrient]);
+  const maxVal = Math.max(...values, limit * 1.1);
+
+  ctx.clearRect(0, 0, W, H);
+
+  // 上限ライン
+  const limitY = pad.top + cH - (limit / maxVal) * cH;
+  ctx.setLineDash([4, 4]);
+  ctx.strokeStyle = '#E24B4A';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(pad.left, limitY);
+  ctx.lineTo(pad.left + cW, limitY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#E24B4A';
+  ctx.font = `10px -apple-system, sans-serif`;
+  ctx.fillText(`上限 ${limit}${unit}`, pad.left + 2, limitY - 3);
+
+  // Y軸ラベル
+  ctx.fillStyle = '#9e9890';
+  ctx.font = `10px -apple-system, sans-serif`;
+  ctx.textAlign = 'right';
+  [0, 0.5, 1].forEach(r => {
+    const y = pad.top + cH - r * cH;
+    const v = (maxVal * r);
+    ctx.fillText(nutrient === 'potassium' ? Math.round(v) : v.toFixed(1), pad.left - 4, y + 3);
+    ctx.strokeStyle = '#e0dbd4';
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(pad.left, y);
+    ctx.lineTo(pad.left + cW, y);
+    ctx.stroke();
+  });
+  ctx.textAlign = 'left';
+
+  // 折れ線
+  const pts = data.map((d, i) => ({
+    x: pad.left + (data.length === 1 ? cW / 2 : (i / (data.length - 1)) * cW),
+    y: pad.top + cH - (values[i] / maxVal) * cH,
+    val: values[i],
+    label: d.label,
+  }));
+
+  // 塗り
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pad.top + cH);
+  pts.forEach(p => ctx.lineTo(p.x, p.y));
+  ctx.lineTo(pts[pts.length-1].x, pad.top + cH);
+  ctx.closePath();
+  ctx.fillStyle = color + '22';
+  ctx.fill();
+
+  // 線
+  ctx.beginPath();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.lineJoin = 'round';
+  pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+  ctx.stroke();
+
+  // 点
+  pts.forEach(p => {
+    const over = p.val > limit;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 3.5, 0, Math.PI * 2);
+    ctx.fillStyle = over ? '#E24B4A' : color;
+    ctx.fill();
+  });
+
+  // X軸ラベル（最大6件まで間引き）
+  ctx.fillStyle = '#9e9890';
+  ctx.font = `9px -apple-system, sans-serif`;
+  ctx.textAlign = 'center';
+  const step = Math.max(1, Math.ceil(data.length / 6));
+  pts.forEach((p, i) => {
+    if (i % step === 0 || i === pts.length - 1) {
+      ctx.fillText(data[i].label.replace('月','/'). replace('日',''), p.x, pad.top + cH + 14);
+    }
+  });
+
+  window._histChartData = data;
+}
+
+function renderHistory() {
+  const filtered = getFilteredHistory();
+  const el = document.getElementById('hist-list');
+  const countLabel = document.getElementById('hist-count-label');
+
+  drawChart(filtered);
+  renderAverage(filtered);
+
+  if (!filtered.length) {
+    el.innerHTML = '<div class="empty">この期間の記録はありません</div>';
+    if (countLabel) countLabel.textContent = '';
+    return;
+  }
+  if (countLabel) countLabel.textContent = `${filtered.length} 日分の記録`;
+
+  // 降順に並べて月ごとにグループ化
+  const desc = [...filtered].sort((a,b) => b.key.localeCompare(a.key));
+  const months = {};
+  desc.forEach(day => {
+    const parts = day.key.split('-');
+    const mkey = `${parts[0]}-${parts[1]}`;
+    const mLabel = `${parts[0]}年${parseInt(parts[1])}月`;
+    if (!months[mkey]) months[mkey] = { label: mLabel, days: [] };
+    months[mkey].days.push(day);
+  });
+
+  el.innerHTML = Object.entries(months).map(([mkey, month]) => {
+    const rows = month.days.map(day => {
+      const t = getTotals(day.meals);
+      const b = (type,val,lbl) => `<span class="badge ${badgeClass(getStatus(val,LIMITS[type],type))}">${lbl}</span>`;
+      return `<div class="hist-item" style="margin-bottom:8px">
+        <div class="hist-date">${day.label}</div>
+        <div class="badge-row">
+          ${b('protein',t.protein,'タンパク質 '+t.protein.toFixed(1)+'g')}
+          ${b('salt',t.salt,'塩分 '+t.salt.toFixed(1)+'g')}
+          ${b('potassium',t.potassium,'カリウム '+Math.round(t.potassium)+'mg')}
+        </div>
+        <div class="hist-count">${day.meals.length}件の記録</div>
+      </div>`;
+    }).join('');
+    const headerId = 'mhdr-' + mkey.replace(/\W/g,'_');
+    const bodyId = 'mbdy-' + mkey.replace(/\W/g,'_');
+    return `<div style="margin-bottom:16px">
+      <div id="${headerId}" onclick="toggleMonth('${bodyId}','${headerId}')" style="display:flex;justify-content:space-between;align-items:center;padding:8px 4px;cursor:pointer;border-bottom:1px solid var(--border);margin-bottom:8px">
+        <div style="font-size:13px;font-weight:600;color:var(--text2)">${month.label}</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:11px;color:var(--text3)">${month.days.length}日分</span>
+          <span class="toggle-icon" style="font-size:12px;color:var(--text3)">▲</span>
+        </div>
+      </div>
+      <div id="${bodyId}">${rows}</div>
+    </div>`;
+  }).join('');
+}
+
+function toggleMonth(bodyId, headerId) {
+  const body = document.getElementById(bodyId);
+  const icon = document.querySelector('#'+headerId+' .toggle-icon');
+  const isHidden = body.style.display === 'none';
+  body.style.display = isHidden ? 'block' : 'none';
+  if (icon) icon.textContent = isHidden ? '▲' : '▼';
+}
+
+// CSV エクスポート
+function exportCSV() {
+  const all = todayMeals.length ? [{key:'today',label:'今日',meals:todayMeals},...history] : history;
+  if (!all.length) { alert('まだ記録がありません'); return; }
+  const rows = [['日付','食事タイミング','食品名','タンパク質(g)','塩分(g)','カリウム(mg)']];
+  all.forEach(day => {
+    day.meals.forEach(m => {
+      rows.push([day.label, m.timing||'', m.name, m.protein.toFixed(1), m.salt.toFixed(1), Math.round(m.potassium)]);
+    });
+  });
+  const bom = '\uFEFF';
+  const csv = bom + rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `食事記録_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// FOODS
+let customFoods = [];
+let foodAddTarget = null; // 食品追加モーダル用
+
+function loadCustomFoods() {
+  try { customFoods = JSON.parse(localStorage.getItem('ckd_custom_foods') || '[]'); } catch(e) { customFoods = []; }
+}
+function saveCustomFoods() {
+  try { localStorage.setItem('ckd_custom_foods', JSON.stringify(customFoods)); } catch(e) {}
+}
+
+function getAllFoods() {
+  const customs = customFoods.map(f => ({ ...f, isCustom: true }));
+  return [...FOOD_DB.map(f => ({...f, isCustom: false})), ...customs];
+}
+
+function getNutrientFilters() {
+  const get = (id, opId) => {
+    const val = parseFloat(document.getElementById(id)?.value);
+    const op = document.getElementById(opId)?.value || 'lte';
+    return isNaN(val) ? null : { val, op };
+  };
+  return {
+    protein: get('nf-protein', 'nf-protein-op'),
+    salt: get('nf-salt', 'nf-salt-op'),
+    potassium: get('nf-potassium', 'nf-potassium-op'),
+  };
+}
+
+function applyNutrientFilter(foods) {
+  const filters = getNutrientFilters();
+  return foods.filter(f => {
+    const p = f.per100.protein, s = f.per100.salt, k = f.per100.potassium;
+    if (filters.protein) {
+      if (filters.protein.op === 'lte' && p > filters.protein.val) return false;
+      if (filters.protein.op === 'gte' && p < filters.protein.val) return false;
+    }
+    if (filters.salt) {
+      if (filters.salt.op === 'lte' && s > filters.salt.val) return false;
+      if (filters.salt.op === 'gte' && s < filters.salt.val) return false;
+    }
+    if (filters.potassium) {
+      if (filters.potassium.op === 'lte' && k > filters.potassium.val) return false;
+      if (filters.potassium.op === 'gte' && k < filters.potassium.val) return false;
+    }
+    return true;
+  });
+}
+
+function clearNutrientFilter() {
+  ['nf-protein','nf-salt','nf-potassium'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  renderFoods();
+}
+
+// statusを常に配列として扱うヘルパー
+function toTagArray(status) {
+  if (!status) return [];
+  if (Array.isArray(status)) return status;
+  // カンマ・スペース区切りの文字列 → 配列
+  return status.split(/[,、\s]+/).map(s => s.trim()).filter(Boolean);
+}
+
+// 全分類を収集してフィルターチップを動的生成
+function buildFilterChips() {
+  const row = document.getElementById('food-filter-row');
+  if (!row) return;
+  const allFoods = getAllFoods();
+  const categories = new Set();
+  allFoods.forEach(f => toTagArray(f.status).forEach(t => categories.add(t)));
+
+  const fixed = [
+    { key: 'all', label: 'すべて' },
+    { key: '__custom__', label: 'マイ食品' },
+  ];
+  const dynamic = [...categories].sort().map(c => ({ key: c, label: c }));
+  const all = [...fixed, ...dynamic];
+
+  row.innerHTML = all.map(item =>
+    `<button class="filter-chip${foodFilter === item.key ? ' active' : ''}" onclick="filterFoods(this,'${item.key}')">${item.label}</button>`
+  ).join('');
+}
+
+function renderFoods() {
+  buildFilterChips();
+  const search = (document.getElementById('food-search')?.value || '').toLowerCase();
+  let foods = getAllFoods();
+  if (foodFilter === '__custom__') foods = foods.filter(f => f.isCustom);
+  else if (foodFilter !== 'all') foods = foods.filter(f => toTagArray(f.status).includes(foodFilter));
+  if (search) foods = foods.filter(f =>
+    f.name.toLowerCase().includes(search) ||
+    (f.note||'').toLowerCase().includes(search) ||
+    toTagArray(f.status).some(t => t.toLowerCase().includes(search))
+  );
+  foods = applyNutrientFilter(foods);
+
+  const countEl = document.getElementById('food-count');
+  const filters = getNutrientFilters();
+  const activeFilters = Object.entries(filters).filter(([,v]) => v !== null);
+  const filterLabel = activeFilters.length > 0
+    ? `（栄養素フィルター適用中：${activeFilters.map(([k,v]) => {
+        const name = k==='protein'?'タンパク質':k==='salt'?'塩分':'カリウム';
+        const unit = k==='potassium'?'mg':'g';
+        return `${name}${v.op==='lte'?'以下':'以上'} ${v.val}${unit}`;
+      }).join('、')}）`
+    : '';
+  if (countEl) countEl.innerHTML = `<span>${foods.length}件</span><span style="color:var(--accent);font-size:11px"> ${filterLabel}</span>`;
+
+  document.getElementById('food-list').innerHTML = foods.length ? foods.map((f, i) => {
+    const tags = toTagArray(f.status);
+    const tagHtml = tags.map(t =>
+      `<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:var(--surface2);color:var(--text2);font-weight:500">${t}</span>`
+    ).join('');
+    return `
+    <div class="food-card" style="margin-bottom:8px">
+      <div class="food-head">
+        <div class="food-name">${f.name}</div>
+        <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">
+          ${tagHtml}
+          ${f.isCustom ? '<span style="font-size:10px;padding:1px 6px;border-radius:10px;background:var(--amber-bg);color:var(--amber)">マイ食品</span>' : ''}
+        </div>
+      </div>
+      <div class="food-nums">
+        <div class="food-num"><div class="food-num-label">タンパク質</div><div class="food-num-val">${f.per100.protein}g</div></div>
+        <div class="food-num"><div class="food-num-label">塩分</div><div class="food-num-val">${f.per100.salt}g</div></div>
+        <div class="food-num"><div class="food-num-label">カリウム</div><div class="food-num-val">${f.per100.potassium}mg</div></div>
+      </div>
+      ${f.note ? `<div class="food-note">${f.note}</div>` : ''}
+      ${f.isCustom ? `<div style="margin-top:8px"><button onclick="deleteCustomFood('${f.name.replace(/'/g,"\\'")}')" style="padding:6px 12px;font-size:12px;background:var(--red-bg);color:var(--red);border:none;border-radius:var(--radius-sm);cursor:pointer;font-family:inherit">削除</button></div>` : ''}
+    </div>`;
+  }).join('') : '<div class="empty">該当する食品がありません</div>';
+
+  // 分類の候補をdatalistに反映
+  const dl = document.getElementById('fm-status-list');
+  if (dl) {
+    const cats = new Set();
+    getAllFoods().forEach(f => toTagArray(f.status).forEach(t => cats.add(t)));
+    dl.innerHTML = [...cats].sort().map(c => `<option value="${c}">`).join('');
+  }
+  // 候補タグをサジェストとして表示
+  const suggestEl = document.getElementById('fm-tag-suggestions');
+  if (suggestEl) {
+    const cats = new Set();
+    getAllFoods().forEach(f => toTagArray(f.status).forEach(t => cats.add(t)));
+    suggestEl.innerHTML = [...cats].sort().map(c =>
+      `<button type="button" onclick="addTag('${c}')" style="font-size:11px;padding:3px 10px;border:1px solid var(--border);border-radius:20px;background:var(--surface2);color:var(--text2);cursor:pointer;font-family:inherit">${c}</button>`
+    ).join('');
+  }
+} // renderFoods end
+
+function filterFoods(btn, type) {
+  foodFilter = type;
+  renderFoods(); // buildFilterChips内でactiveクラスが付く
+}
+
+// 食品追加モーダル（食品DBから食事記録へ）
+function openFoodAddModal(food) {
+  foodAddTarget = food;
+  document.getElementById('fam-name').textContent = food.name;
+  document.getElementById('fam-nutrients').textContent = `タンパク質 ${food.per100.protein}g ｜ 塩分 ${food.per100.salt}g ｜ カリウム ${food.per100.potassium}mg（100gあたり）`;
+  document.getElementById('fam-amount').value = '100';
+  document.getElementById('fam-date').value = todayDateStr();
+  updateFamCalc();
+  document.getElementById('food-add-modal').style.display = 'flex';
+}
+function hideFoodAddModal() {
+  document.getElementById('food-add-modal').style.display = 'none';
+  foodAddTarget = null;
+}
+function updateFamCalc() {
+  if (!foodAddTarget) return;
+  const amt = parseFloat(document.getElementById('fam-amount').value) || 0;
+  const r = amt / 100;
+  const p = (foodAddTarget.per100.protein * r).toFixed(1);
+  const s = (foodAddTarget.per100.salt * r).toFixed(1);
+  const k = Math.round(foodAddTarget.per100.potassium * r);
+  const prev = document.getElementById('fam-preview');
+  const vals = document.getElementById('fam-preview-vals');
+  if (amt > 0) {
+    prev.style.display = 'block';
+    vals.innerHTML = `<span style="color:var(--accent)">タンパク質 ${p}g</span><span style="color:var(--amber)">塩分 ${s}g</span><span style="color:var(--green)">カリウム ${k}mg</span>`;
+  } else {
+    prev.style.display = 'none';
+  }
+}
+function addFromFoodDB() {
+  if (!foodAddTarget) return;
+  const amt = parseFloat(document.getElementById('fam-amount').value) || 100;
+  const r = amt / 100;
+  const meal = {
+    name: `${foodAddTarget.name}（${amt}g）`,
+    timing: document.getElementById('fam-timing').value,
+    protein: parseFloat((foodAddTarget.per100.protein * r).toFixed(1)),
+    salt: parseFloat((foodAddTarget.per100.salt * r).toFixed(1)),
+    potassium: Math.round(foodAddTarget.per100.potassium * r),
+  };
+  const dateStr = document.getElementById('fam-date').value;
+  saveMealToDate(meal, dateStr);
+  hideFoodAddModal();
+  showPage('today', document.querySelectorAll('.nav-btn')[0]);
+}
+
+// タグ管理（食品モーダル用）
+let currentTags = [];
+
+function renderTagDisplay() {
+  const el = document.getElementById('fm-tags-display');
+  if (!el) return;
+  el.innerHTML = currentTags.map((t, i) =>
+    `<span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;padding:3px 10px;border-radius:20px;background:var(--accent);color:#fff">
+      ${t}
+      <button type="button" onclick="removeTag(${i})" style="border:none;background:none;color:#fff;cursor:pointer;font-size:14px;padding:0;line-height:1">×</button>
+    </span>`
+  ).join('');
+}
+
+function addTagFromInput() {
+  const input = document.getElementById('fm-status');
+  const val = input.value.trim();
+  if (!val) return;
+  val.split(/[,、／/]+/).map(s => s.trim()).filter(Boolean).forEach(tag => {
+    if (!currentTags.includes(tag)) currentTags.push(tag);
+  });
+  input.value = '';
+  renderTagDisplay();
+}
+
+function addTag(tag) {
+  if (!currentTags.includes(tag)) { currentTags.push(tag); renderTagDisplay(); }
+}
+
+function removeTag(i) {
+  currentTags.splice(i, 1);
+  renderTagDisplay();
+}
+
+function handleTagInput(e) {
+  if (e.key === 'Enter') { e.preventDefault(); addTagFromInput(); }
+}
+
+function showFoodModal(editIdx) {
+  currentTags = [];
+  document.getElementById('food-modal-title').textContent = editIdx !== undefined ? '食品を編集' : '食品を追加';
+  if (editIdx !== undefined) {
+    const f = customFoods[editIdx];
+    document.getElementById('fm-name').value = f.name;
+    document.getElementById('fm-protein').value = f.per100.protein;
+    document.getElementById('fm-salt').value = f.per100.salt;
+    document.getElementById('fm-potassium').value = f.per100.potassium;
+    currentTags = toTagArray(f.status);
+    document.getElementById('fm-note').value = f.note || '';
+    document.getElementById('food-modal').dataset.editIdx = editIdx;
+  } else {
+    ['fm-name','fm-protein','fm-salt','fm-potassium','fm-note','fm-status'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+    delete document.getElementById('food-modal').dataset.editIdx;
+  }
+  renderTagDisplay();
+  renderFoods(); // サジェスト更新のため
+  document.getElementById('food-modal').style.display = 'flex';
+}
+
+function hideFoodModal() {
+  document.getElementById('food-modal').style.display = 'none';
+}
+
+function saveFoodItem() {
+  // 入力中のタグも追加
+  const inputVal = document.getElementById('fm-status').value.trim();
+  if (inputVal) addTagFromInput();
+
+  const name = document.getElementById('fm-name').value.trim();
+  if (!name) { alert('食品名を入力してください'); return; }
+  const item = {
+    name,
+    per100: {
+      protein: parseFloat(document.getElementById('fm-protein').value) || 0,
+      salt: parseFloat(document.getElementById('fm-salt').value) || 0,
+      potassium: parseFloat(document.getElementById('fm-potassium').value) || 0,
+    },
+    status: currentTags.length > 0 ? currentTags : ['その他'],
+    note: document.getElementById('fm-note').value.trim(),
+  };
+  const editIdx = document.getElementById('food-modal').dataset.editIdx;
+  if (editIdx !== undefined) {
+    customFoods[parseInt(editIdx)] = item;
+  } else {
+    customFoods.push(item);
+  }
+  saveCustomFoods();
+  hideFoodModal();
+  renderFoods();
+}
+function deleteCustomFood(name) {
+  if (!confirm(`「${name}」を削除しますか？`)) return;
+  customFoods = customFoods.filter(f => f.name !== name);
+  saveCustomFoods();
+  renderFoods();
+}
+
+// CSVの1行をクォート対応でパースする
+function parseCSVLine(line) {
+  const result = [];
+  let cur = '';
+  let inQuote = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuote && line[i+1] === '"') { cur += '"'; i++; } // エスケープ済みクォート
+      else inQuote = !inQuote;
+    } else if (ch === ',' && !inQuote) {
+      result.push(cur.trim());
+      cur = '';
+    } else {
+      cur += ch;
+    }
+  }
+  result.push(cur.trim());
+  return result;
+}
+
+// CSVインポート
+function importFoodCSV(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const text = e.target.result;
+    const lines = text.split(/\r?\n/).filter(l => l.trim());
+    if (lines.length < 2) { alert('データが見つかりませんでした'); return; }
+
+    // ヘッダー行を解析（列名を自動判定）
+    const header = parseCSVLine(lines[0]).map(h => h.replace(/^["']|["']$/g,'').trim().toLowerCase());
+    const colIdx = {
+      name: header.findIndex(h => /食品|name|食材|品名/.test(h)),
+      protein: header.findIndex(h => /タンパク|たんぱく|protein|蛋白/.test(h)),
+      salt: header.findIndex(h => /塩分|食塩|塩|salt|sodium|ナトリウム/.test(h)),
+      potassium: header.findIndex(h => /カリウム|potassium/.test(h)),
+      status: header.findIndex(h => /分類|status|区分|カテゴリ/.test(h)),
+      note: header.findIndex(h => /メモ|note|備考|コメント/.test(h)),
+    };
+
+    if (colIdx.name < 0) { alert('「食品名」の列が見つかりませんでした。\nヘッダー行に「食品名」または「name」を含めてください。'); return; }
+
+    let added = 0, skipped = 0;
+    lines.slice(1).forEach(line => {
+      if (!line.trim()) return;
+      const cols = parseCSVLine(line);
+      const name = cols[colIdx.name];
+      if (!name) { skipped++; return; }
+      const rawStatus = colIdx.status >= 0 ? (cols[colIdx.status]||'').trim() : '';
+      // カンマ・読点・スラッシュ区切りで複数分類に対応
+      const statusMap = {'おすすめ':'おすすめ','ok':'おすすめ','注意':'注意','caution':'注意','避けたい':'避けたい','ng':'避けたい'};
+      const statusTags = rawStatus
+        ? rawStatus.split(/[,、／/]+/).map(s => s.trim()).filter(Boolean).map(s => statusMap[s.toLowerCase()] || s)
+        : ['その他'];
+      const item = {
+        name,
+        per100: {
+          protein: colIdx.protein >= 0 ? (parseFloat(cols[colIdx.protein]) || 0) : 0,
+          salt: colIdx.salt >= 0 ? (parseFloat(cols[colIdx.salt]) || 0) : 0,
+          potassium: colIdx.potassium >= 0 ? (parseFloat(cols[colIdx.potassium]) || 0) : 0,
+        },
+        status: statusTags,
+        note: colIdx.note >= 0 ? (cols[colIdx.note] || '') : '',
+      };
+      // 同名があれば上書き
+      const exist = customFoods.findIndex(f => f.name === name);
+      if (exist >= 0) customFoods[exist] = item;
+      else customFoods.push(item);
+      added++;
+    });
+    saveCustomFoods();
+    renderFoods();
+    alert(`${added}件の食品を読み込みました${skipped > 0 ? `（${skipped}件スキップ）` : ''}`);
+    event.target.value = '';
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+// CSVテンプレートダウンロード
+function downloadFoodTemplate() {
+  const bom = '\uFEFF';
+  const rows = [
+    ['食品名','タンパク質(g/100g)','塩分(g/100g)','カリウム(mg/100g)','分類','メモ'],
+    ['白ごはん','2.5','0','29','おすすめ','主食。カリウムが少ない'],
+    ['鶏むね肉','22.3','0.1','370','注意','タンパク質が高め'],
+    ['バナナ','1.1','0','360','避けたい','カリウムが多い'],
+  ];
+  const csv = bom + rows.map(r => r.map(v => `"${v}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = '食品データ_テンプレート.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// DATE
+function updateDate() {
+  const d = new Date();
+  const days = ['日','月','火','水','木','金','土'];
+  document.getElementById('header-date').textContent = `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日（${days[d.getDay()]}）`;
+}
+
+// INIT
+load();
+loadCustomFoods();
+// 旧形式キーを正規化
+history = history.map(d => ({ ...d, key: normalizeKey(d.key) }));
+updateDate();
+// 日付ピッカーを今日に初期化
+const _today = todayDateStr();
+document.getElementById('m-date').value = _today;
+document.getElementById('photo-date').value = _today;
+document.getElementById('text-date').value = _today;
+document.getElementById('view-date').value = _today;
+// 履歴の期間フィルターを直近30日に初期化（今日が終了日）
+document.getElementById('hist-to').value = _today;
+const _from30 = new Date(); _from30.setDate(_from30.getDate() - 29);
+document.getElementById('hist-from').value = `${_from30.getFullYear()}-${String(_from30.getMonth()+1).padStart(2,'0')}-${String(_from30.getDate()).padStart(2,'0')}`;
+renderDayView();
+renderFoods();
+setInterval(saveToHistory, 60000);
+</script>
+</body>
+</html>
