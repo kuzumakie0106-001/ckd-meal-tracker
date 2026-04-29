@@ -203,7 +203,10 @@
 <body>
 <div class="app">
   <div class="header">
-    <div class="header-title">腎臓病 食事管理</div>
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div class="header-title">腎臓病 食事管理</div>
+      <div id="sync-status" style="font-size:11px;color:var(--text3)">接続中…</div>
+    </div>
     <div class="header-date" id="header-date"></div>
   </div>
 
@@ -570,15 +573,148 @@ let parsedPhotoItems = [];
 let parsedTextItems = [];
 let foodFilter = 'all';
 
-function load() {
+// ===== Google Sheets 連携 =====
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbyKChlJFVpyi8w_pPzWhDirzFUm-56NPw3N00_XmzKGatWncdCmfjr4ubKljMTWnaX2Ow/exec';
+let syncEnabled = true; // オフライン時はfalseに
+
+async function gasGet(action) {
+  try {
+    const res = await fetch(`${GAS_URL}?action=${action}`);
+    return await res.json();
+  } catch(e) {
+    console.warn('GAS通信エラー:', e);
+    syncEnabled = false;
+    return null;
+  }
+}
+
+async function gasPost(action, body) {
+  try {
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action, ...body }),
+    });
+    return await res.json();
+  } catch(e) {
+    console.warn('GAS通信エラー:', e);
+    syncEnabled = false;
+    return null;
+  }
+}
+
+// 同期状態表示
+function setSyncStatus(status) {
+  const el = document.getElementById('sync-status');
+  if (!el) return;
+  if (status === 'syncing') { el.textContent = '🔄 同期中…'; el.style.color = 'var(--text3)'; }
+  else if (status === 'ok') { el.textContent = '☁️ 同期済み'; el.style.color = 'var(--green)'; }
+  else { el.textContent = '⚠️ オフライン'; el.style.color = 'var(--amber)'; }
+}
+
+// ===== 食事記録の読み込み・保存 =====
+async function load() {
+  // まずlocalStorageから即時表示
   try { todayMeals = JSON.parse(localStorage.getItem('ckd_meals') || '[]'); } catch(e) { todayMeals = []; }
   try { history = JSON.parse(localStorage.getItem('ckd_hist') || '[]'); } catch(e) { history = []; }
+
+  // バックグラウンドでGoogleシートから最新を取得
+  setSyncStatus('syncing');
+  const data = await gasGet('getMeals');
+  if (!data || data.error) { setSyncStatus('offline'); return; }
+
+  // シートのデータをtodayMeals/historyに変換
+  const todayK = dateKey(new Date()).key;
+  const grouped = {};
+  (data.meals || []).forEach(m => {
+    const k = m.date;
+    if (!grouped[k]) grouped[k] = [];
+    grouped[k].push({
+      id: m.id,
+      name: m.name,
+      protein: parseFloat(m.protein) || 0,
+      salt: parseFloat(m.salt) || 0,
+      potassium: parseFloat(m.potassium) || 0,
+      timing: m.timing || '',
+    });
+  });
+
+  todayMeals = grouped[todayK] || [];
+  history = Object.entries(grouped)
+    .filter(([k]) => k !== todayK)
+    .map(([k, meals]) => ({ key: k, label: dateKey(k).label, meals }))
+    .sort((a, b) => b.key.localeCompare(a.key));
+
+  // localStorageにも保存
+  try {
+    localStorage.setItem('ckd_meals', JSON.stringify(todayMeals));
+    localStorage.setItem('ckd_hist', JSON.stringify(history));
+  } catch(e) {}
+
+  setSyncStatus('ok');
+  renderDayView();
+  renderHistory();
 }
+
 function save() {
   try {
     localStorage.setItem('ckd_meals', JSON.stringify(todayMeals));
     localStorage.setItem('ckd_hist', JSON.stringify(history));
   } catch(e) {}
+}
+
+// 食事1件をシートに保存
+async function syncMealToSheet(meal, dateStr) {
+  if (!meal.id) meal.id = Date.now() + Math.random().toString(36).slice(2);
+  setSyncStatus('syncing');
+  const result = await gasPost('saveMeal', { meal: { ...meal, date: dateStr } });
+  setSyncStatus(result && result.ok ? 'ok' : 'offline');
+  return meal;
+}
+
+// 食事削除をシートに反映
+async function syncDeleteMeal(id) {
+  if (!id) return;
+  setSyncStatus('syncing');
+  const result = await gasPost('deleteMeal', { id });
+  setSyncStatus(result && result.ok ? 'ok' : 'offline');
+}
+
+// ===== マイ食品の読み込み・保存 =====
+async function loadCustomFoods() {
+  try { customFoods = JSON.parse(localStorage.getItem('ckd_custom_foods') || '[]'); } catch(e) { customFoods = []; }
+
+  const data = await gasGet('getFoods');
+  if (!data || data.error) return;
+
+  customFoods = (data.foods || []).map(f => ({
+    name: f.name,
+    per100: {
+      protein: parseFloat(f.protein) || 0,
+      salt: parseFloat(f.salt) || 0,
+      potassium: parseFloat(f.potassium) || 0,
+    },
+    status: Array.isArray(f.status) ? f.status : [f.status || 'その他'],
+    note: f.note || '',
+  }));
+
+  try { localStorage.setItem('ckd_custom_foods', JSON.stringify(customFoods)); } catch(e) {}
+  renderFoods();
+}
+
+function saveCustomFoods() {
+  try { localStorage.setItem('ckd_custom_foods', JSON.stringify(customFoods)); } catch(e) {}
+}
+
+async function syncFoodToSheet(food) {
+  setSyncStatus('syncing');
+  const result = await gasPost('saveFood', { food });
+  setSyncStatus(result && result.ok ? 'ok' : 'offline');
+}
+
+async function syncDeleteFood(name) {
+  setSyncStatus('syncing');
+  const result = await gasPost('deleteFood', { name });
+  setSyncStatus(result && result.ok ? 'ok' : 'offline');
 }
 function dateKey(d) {
   // d は Date オブジェクト or "YYYY-MM-DD" 文字列
@@ -594,30 +730,28 @@ function dateKey(d) {
   return { key, label: `${m}月${dd}日` };
 }
 
-function saveMealToDate(meal, dateStr) {
-  // dateStr: "YYYY-MM-DD" (input[type=date]の値) or null（今日）
+async function saveMealToDate(meal, dateStr) {
   const today = new Date();
   const todayKey = dateKey(today).key;
+  if (!meal.id) meal.id = Date.now() + Math.random().toString(36).slice(2);
 
   if (!dateStr || dateKey(dateStr).key === todayKey) {
-    // 今日分
     todayMeals.push(meal);
     saveToHistory();
     renderDayView();
   } else {
-    // 過去・未来の日付
     const { key, label } = dateKey(dateStr);
     const idx = history.findIndex(h => h.key === key);
-    if (idx >= 0) {
-      history[idx].meals.push(meal);
-    } else {
+    if (idx >= 0) history[idx].meals.push(meal);
+    else {
       history.unshift({ key, label, meals: [meal] });
       history.sort((a, b) => b.key.localeCompare(a.key));
     }
     save();
-    // 追加した日が表示されるよう履歴ページへ
     alert(`${label}の記録に追加しました`);
   }
+  // シートに同期
+  await syncMealToSheet(meal, dateStr || todayKey);
 }
 
 function saveToHistory() {
@@ -769,18 +903,22 @@ function renderTodayList(meals) {
 
 function removeMeal(i, vKey) {
   const todayK = dateKey(new Date()).key;
+  let deletedId = null;
   if (vKey === todayK) {
+    deletedId = todayMeals[i]?.id;
     todayMeals.splice(i, 1);
     saveToHistory();
   } else {
     const idx = history.findIndex(h => h.key === vKey);
     if (idx >= 0) {
+      deletedId = history[idx].meals[i]?.id;
       history[idx].meals.splice(i, 1);
       if (history[idx].meals.length === 0) history.splice(idx, 1);
       save();
     }
   }
   renderDayView();
+  if (deletedId) syncDeleteMeal(deletedId);
 }
 
 function showPage(name, btn) {
@@ -1687,19 +1825,19 @@ function saveFoodItem() {
     note: document.getElementById('fm-note').value.trim(),
   };
   const editIdx = document.getElementById('food-modal').dataset.editIdx;
-  if (editIdx !== undefined) {
-    customFoods[parseInt(editIdx)] = item;
-  } else {
-    customFoods.push(item);
-  }
+  if (editIdx !== undefined) customFoods[parseInt(editIdx)] = item;
+  else customFoods.push(item);
   saveCustomFoods();
+  syncFoodToSheet(item);
   hideFoodModal();
   renderFoods();
 }
+
 function deleteCustomFood(name) {
   if (!confirm(`「${name}」を削除しますか？`)) return;
   customFoods = customFoods.filter(f => f.name !== name);
   saveCustomFoods();
+  syncDeleteFood(name);
   renderFoods();
 }
 
@@ -1810,24 +1948,24 @@ function updateDate() {
 }
 
 // INIT
-load();
-loadCustomFoods();
-// 旧形式キーを正規化
-history = history.map(d => ({ ...d, key: normalizeKey(d.key) }));
-updateDate();
-// 日付ピッカーを今日に初期化
-const _today = todayDateStr();
-document.getElementById('m-date').value = _today;
-document.getElementById('photo-date').value = _today;
-document.getElementById('text-date').value = _today;
-document.getElementById('view-date').value = _today;
-// 履歴の期間フィルターを直近30日に初期化（今日が終了日）
-document.getElementById('hist-to').value = _today;
-const _from30 = new Date(); _from30.setDate(_from30.getDate() - 29);
-document.getElementById('hist-from').value = `${_from30.getFullYear()}-${String(_from30.getMonth()+1).padStart(2,'0')}-${String(_from30.getDate()).padStart(2,'0')}`;
-renderDayView();
-renderFoods();
-setInterval(saveToHistory, 60000);
+(async () => {
+  await load();
+  await loadCustomFoods();
+  // 旧形式キーを正規化
+  history = history.map(d => ({ ...d, key: normalizeKey(d.key) }));
+  updateDate();
+  const _today = todayDateStr();
+  document.getElementById('m-date').value = _today;
+  document.getElementById('photo-date').value = _today;
+  document.getElementById('text-date').value = _today;
+  document.getElementById('view-date').value = _today;
+  document.getElementById('hist-to').value = _today;
+  const _from30 = new Date(); _from30.setDate(_from30.getDate() - 29);
+  document.getElementById('hist-from').value = `${_from30.getFullYear()}-${String(_from30.getMonth()+1).padStart(2,'0')}-${String(_from30.getDate()).padStart(2,'0')}`;
+  renderDayView();
+  renderFoods();
+  setInterval(saveToHistory, 60000);
+})();
 </script>
 </body>
 </html>
